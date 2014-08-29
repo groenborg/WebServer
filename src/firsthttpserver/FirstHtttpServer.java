@@ -4,7 +4,11 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import java.io.BufferedInputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.util.Iterator;
@@ -28,6 +32,7 @@ public class FirstHtttpServer {
         HttpServer server = HttpServer.create(new InetSocketAddress(ip, port), 0);
         server.createContext("/welcome", new RequestHandler());
         server.createContext("/header", new HeaderHandler());
+        server.createContext("/page", new PageHandler());
         server.setExecutor(null); // Use the default executor
         server.start();
         System.out.println("Server started, listening on port: " + port);
@@ -52,7 +57,7 @@ public class FirstHtttpServer {
             response = sb.toString();
 
             Headers h = he.getResponseHeaders();
-            h.add("content-cype", "text/html");
+            h.add("content-type", "text/html");
             he.sendResponseHeaders(200, response.length());
             try (PrintWriter pw = new PrintWriter(he.getResponseBody())) {
                 pw.print(response); //What happens if we use a println instead of print --> Explain
@@ -64,7 +69,7 @@ public class FirstHtttpServer {
 
         @Override
         public void handle(HttpExchange he) throws IOException {
-            String response = "Welcome to my very first almost home made Web Server :-)";
+            String response;
             StringBuilder sb = new StringBuilder();
             sb.append("<!DOCTYPE html>\n");
             sb.append("<html>\n");
@@ -75,21 +80,21 @@ public class FirstHtttpServer {
             sb.append("<body>\n");
             sb.append("<h2>Welcome to my very first home made Web Server :-)</h2>\n");
             sb.append("<table border=1>");
-            
+
             Iterator<Entry<String, List<String>>> l = he.getRequestHeaders().entrySet().iterator();
             while (l.hasNext()) {
                 Entry<String, List<String>> entry = l.next();
                 sb.append("<tr><td>" + entry.getKey() + "</td><td> " + entry.getValue().toString() + "</td></tr>");
-            } 
-            
-            for (Map.Entry<String, List<String>> entry: he.getRequestHeaders().entrySet()) {
+            }
+
+            for (Map.Entry<String, List<String>> entry : he.getRequestHeaders().entrySet()) {
                 sb.append("<tr><td>");
                 sb.append(entry.getKey());
                 sb.append("</td><td>");
                 sb.append(entry.getValue());
                 sb.append("</td></tr>");
             }
-            
+
             sb.append("</table>");
             sb.append("</body>\n");
             sb.append("</html>\n");
@@ -98,7 +103,33 @@ public class FirstHtttpServer {
             h.add("content-type", "text/html");
             he.sendResponseHeaders(200, response.length());
             try (PrintWriter pw = new PrintWriter(he.getResponseBody())) {
-                pw.print(response); //What happens if we use a println instead of print --> Explain
+                pw.print(response);
+            }
+        }
+    }
+
+    static class PageHandler implements HttpHandler {
+
+        String contentFolder = "public/";
+
+        @Override
+        public void handle(HttpExchange he) throws IOException {
+
+            File file = new File(contentFolder + "index.html");
+            byte[] bytesToSend = new byte[(int) file.length()];
+
+            try {
+                BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+                bis.read(bytesToSend, 0, bytesToSend.length);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            Headers h = he.getResponseHeaders();
+            h.add("content-type", "text/html");
+            he.sendResponseHeaders(200, bytesToSend.length);
+            try (OutputStream os = he.getResponseBody()) {
+                os.write(bytesToSend);
             }
         }
     }
